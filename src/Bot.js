@@ -6,6 +6,11 @@ const { SocksProxyAgent } = require('socks-proxy-agent');
 const { HttpsProxyAgent } = require('https-proxy-agent');
 
 class Bot {
+  ws;
+  sendPingIntervalId;
+  noReplyPingCount = 0;
+  noReplyPingTollerant = 3;
+
   constructor(config) {
     this.config = config;
   }
@@ -18,7 +23,7 @@ class Bot {
       const response = await axios.get(this.config.ipCheckURL, {
         httpsAgent: agent,
       });
-      console.log(`Connected through proxy ${proxy}`.green);
+      console.log(`Connected through ip ${response.data.ip}`.green);
       return response.data;
     } catch (error) {
       console.error(
@@ -59,16 +64,18 @@ class Bot {
           Browser: 'Mozilla',
         },
       });
+      this.ws = ws;
 
       ws.on('open', () => {
         console.log(`Connected to ${proxy}`.cyan);
         console.log(`Proxy IP Info: ${JSON.stringify(proxyInfo)}`.magenta);
-        this.sendPing(ws, proxyInfo.ip);
+        this.sendPing("PROXY", proxy, userID);
       });
 
       ws.on('message', (message) => {
         const msg = JSON.parse(message);
         console.log(`Received message: ${JSON.stringify(msg)}`.blue);
+        this.noReplyPingCount = 0
 
         if (msg.action === 'AUTH') {
           const authResponse = {
@@ -130,15 +137,17 @@ class Bot {
           Browser: 'Mozilla',
         },
       });
+      this.ws = ws;
 
       ws.on('open', () => {
         console.log(`Connected directly without proxy`.cyan);
-        this.sendPing(ws, 'Direct IP');
+        this.sendPing("DIRECT",'Direct', userID);
       });
 
       ws.on('message', (message) => {
         const msg = JSON.parse(message);
         console.log(`Received message: ${JSON.stringify(msg)}`.blue);
+        this.noReplyPingCount = 0;
 
         if (msg.action === 'AUTH') {
           const authResponse = {
@@ -181,19 +190,38 @@ class Bot {
     }
   }
 
-  sendPing(ws, proxyIP) {
-    setInterval(() => {
+  sendPing(connectType, proxy, userID) {
+    this.sendPingIntervalId = setInterval(() => {
       const pingMessage = {
         id: uuidv4(),
         version: '1.0.0',
         action: 'PING',
         data: {},
       };
-      ws.send(JSON.stringify(pingMessage));
-      console.log(
-        `Sent ping - IP: ${proxyIP}, Message: ${JSON.stringify(pingMessage)}`
-          .cyan
-      );
+      this.ws.send(JSON.stringify(pingMessage));
+
+      this.noReplyPingCount++
+      if(this.noReplyPingCount >= this.noReplyPingTollerant){
+        console.error(
+          `Max send ping tollerant, reconnectiong...`
+            .red
+        );
+        this.noReplyPingCount = 0;
+        clearInterval(this.sendPingIntervalId);
+        this.ws.terminate();
+
+        if(connectType === "DIRECT"){
+          this.connectDirectly(userID);
+        }else if(connectType === "PROXY"){
+          this.connectToProxy(proxy, userID)
+        }
+      }else{
+        console.log(
+          `Sent ping - IP: ${proxy}, Message: ${JSON.stringify(pingMessage)}`
+            .cyan
+        );
+      }
+
     }, 26000);
   }
 }
