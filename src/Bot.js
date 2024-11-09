@@ -15,7 +15,7 @@ class Bot {
     this.config = config;
   }
 
-  async getProxyIP(proxy) {
+  async getProxyIP(proxy, userID) {
     const agent = proxy.startsWith('http')
       ? new HttpsProxyAgent(proxy)
       : new SocksProxyAgent(proxy);
@@ -30,6 +30,7 @@ class Bot {
         `Skipping proxy ${proxy} due to connection error: ${error.message}`
           .yellow
       );
+      this.connectToProxy(proxy, userID)
       return null;
     }
   }

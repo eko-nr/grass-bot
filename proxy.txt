@@ -1,1 +1,1 @@
-http://user:pass@185.162.130.86:10000
+http://username:pass@185.162.130.86:10000
