@@ -6,10 +6,8 @@ const { SocksProxyAgent } = require('socks-proxy-agent');
 const { HttpsProxyAgent } = require('https-proxy-agent');
 
 class Bot {
-  ws;
-  sendPingIntervalId;
-  noReplyPingCount = 0;
-  noReplyPingTollerant = 3;
+  isOnReconnecting = false;
+  timeoutSendPing = 28000;
 
   constructor(config) {
     this.config = config;
@@ -65,18 +63,17 @@ class Bot {
           Browser: 'Mozilla',
         },
       });
-      this.ws = ws;
+      this.isOnReconnecting = false;
 
       ws.on('open', () => {
         console.log(`Connected to ${proxy}`.cyan);
         console.log(`Proxy IP Info: ${JSON.stringify(proxyInfo)}`.magenta);
-        this.sendPing("PROXY", proxy, userID);
+        this.sendPingDelay(ws, "PROXY", proxy, userID);
       });
 
       ws.on('message', (message) => {
         const msg = JSON.parse(message);
         console.log(`Received message: ${JSON.stringify(msg)}`.blue);
-        this.noReplyPingCount = 0
 
         if (msg.action === 'AUTH') {
           const authResponse = {
@@ -97,6 +94,7 @@ class Bot {
           );
         } else if (msg.action === 'PONG') {
           console.log(`Received PONG: ${JSON.stringify(msg)}`.blue);
+          this.sendPingDelay(ws, "PROXY", proxy, userID);
         }
       });
 
@@ -104,10 +102,13 @@ class Bot {
         console.log(
           `WebSocket closed with code: ${code}, reason: ${reason}`.yellow
         );
-        setTimeout(
-          () => this.connectToProxy(proxy, userID),
-          this.config.retryInterval
-        );
+
+        if(!this.isOnReconnecting){
+          setTimeout(
+            () => this.connectToProxy(proxy, userID),
+            this.config.retryInterval
+          );
+        }
       });
 
       ws.on('error', (error) => {
@@ -138,17 +139,16 @@ class Bot {
           Browser: 'Mozilla',
         },
       });
-      this.ws = ws;
+      this.isOnReconnecting = false
 
       ws.on('open', () => {
         console.log(`Connected directly without proxy`.cyan);
-        this.sendPing("DIRECT",'Direct', userID);
+        this.sendPingDelay(ws, "DIRECT",'Direct', userID);
       });
 
       ws.on('message', (message) => {
         const msg = JSON.parse(message);
         console.log(`Received message: ${JSON.stringify(msg)}`.blue);
-        this.noReplyPingCount = 0;
 
         if (msg.action === 'AUTH') {
           const authResponse = {
@@ -169,6 +169,7 @@ class Bot {
           );
         } else if (msg.action === 'PONG') {
           console.log(`Received PONG: ${JSON.stringify(msg)}`.blue);
+          this.sendPingDelay(ws, "DIRECT",'Direct', userID);
         }
       });
 
@@ -176,10 +177,12 @@ class Bot {
         console.log(
           `WebSocket closed with code: ${code}, reason: ${reason}`.yellow
         );
-        setTimeout(
-          () => this.connectDirectly(userID),
-          this.config.retryInterval
-        );
+        if(!this.isOnReconnecting){
+          setTimeout(
+            () => this.connectDirectly(userID),
+            this.config.retryInterval
+          );
+        }
       });
 
       ws.on('error', (error) => {
@@ -191,39 +194,21 @@ class Bot {
     }
   }
 
-  sendPing(connectType, proxy, userID) {
-    this.sendPingIntervalId = setInterval(() => {
+  sendPingDelay(ws, connectType, proxy, userID) {
+    setTimeout(() => {
       const pingMessage = {
         id: uuidv4(),
         version: '1.0.0',
         action: 'PING',
         data: {},
       };
-      this.ws.send(JSON.stringify(pingMessage));
-
-      this.noReplyPingCount++
-      if(this.noReplyPingCount >= this.noReplyPingTollerant){
-        console.error(
-          `Max send ping tollerant, reconnectiong...`
-            .red
-        );
-        this.noReplyPingCount = 0;
-        clearInterval(this.sendPingIntervalId);
-        this.ws.terminate();
-
-        if(connectType === "DIRECT"){
-          this.connectDirectly(userID);
-        }else if(connectType === "PROXY"){
-          this.connectToProxy(proxy, userID)
-        }
-      }else{
-        console.log(
-          `Sent ping - IP: ${proxy}, Message: ${JSON.stringify(pingMessage)}`
-            .cyan
-        );
-      }
-
-    }, 26000);
+      ws.send(JSON.stringify(pingMessage));
+  
+      console.log(
+        `Sent ping - IP: ${proxy}, Message: ${JSON.stringify(pingMessage)}`
+          .cyan
+      );
+    }, this.timeoutSendPing);
   }
 }
 
