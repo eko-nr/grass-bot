@@ -103,12 +103,23 @@ class Bot {
         }
       });
 
+      const poolingReplyPing = setInterval(() => {
+        if(
+          this.lastTimeRepliedPing && 
+          moment(this.lastTimeRepliedPing).add(this.reconnectNoReplyPingTime, "minutes") < moment()
+        ){
+          console.log("No reply ping!".yellow);
+          ws.terminate();
+        }
+      }, 1000)
+
       ws.on('close', (code, reason) => {
         console.log(
           `WebSocket closed with code: ${code}, reason: ${reason}`.yellow
         );
 
         if(!this.isOnReconnecting){
+          clearInterval(poolingReplyPing)
           setTimeout(
             () => this.connectToProxy(proxy, userID),
             this.config.retryInterval
@@ -123,16 +134,6 @@ class Bot {
         ws.terminate();
       });
 
-      const poolingReplyPing = setInterval(() => {
-        if(
-          this.lastTimeRepliedPing && 
-          moment(this.lastTimeRepliedPing).add(this.reconnectNoReplyPingTime, "minutes") < moment()
-        ){
-          clearInterval(poolingReplyPing);
-          console.log("No reply ping!".yellow);
-          ws.terminate();
-        }
-      }, 1000)
     } catch (error) {
       console.error(
         `Failed to connect with proxy ${proxy}: ${error.message}`.red
