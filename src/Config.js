@@ -6,7 +6,7 @@ class Config {
       source: "CUSTOM", // CUSTOM | NO PROXY
       filename: "proxy.txt"
     }
-    this.retryInterval = 5000;
+    this.retryInterval = 2000;
   }
 }
 

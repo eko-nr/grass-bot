@@ -8,7 +8,7 @@ const moment = require("moment")
 
 class Bot {
   isOnReconnecting = false;
-  timeoutSendPing = 28000;
+  timeoutSendPing = 65000;
   lastTimeRepliedPing;
   reconnectNoReplyPingTime = 5;
 
