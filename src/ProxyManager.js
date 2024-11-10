@@ -30,31 +30,37 @@ async function readLines(filename) {
 async function selectProxySource(inquirer) {
   const config = new Config()
 
-  const choices = ['CUSTOM', 'NO PROXY'];
-  const { source } = await inquirer.prompt([
-    {
-      type: 'list',
-      name: 'source',
-      message: 'Select proxy source:'.cyan,
-      choices,
-    },
-  ]);
-
-  if (source === 'CUSTOM') {
-    const { filename } = await inquirer.prompt([
+  if(config.prompt.show){
+    const choices = ['CUSTOM', 'NO PROXY'];
+    const { source } = await inquirer.prompt([
       {
-        type: 'input',
-        name: 'filename',
-        message: 'Enter the path to your proxy.txt file:'.cyan,
-        default: 'proxy.txt',
+        type: 'list',
+        name: 'source',
+        message: 'Select proxy source:'.cyan,
+        choices,
       },
     ]);
-    return { type: 'file', source: filename };
-  } else if (source === 'NO PROXY') {
-    return { type: 'none' };
-  }
 
-  return { type: 'url', source: PROXY_SOURCES[source] };
+    if (source === 'CUSTOM') {
+      const { filename } = await inquirer.prompt([
+        {
+          type: 'input',
+          name: 'filename',
+          message: 'Enter the path to your proxy.txt file:'.cyan,
+          default: 'proxy.txt',
+        },
+      ]);
+      return { type: 'file', source: filename };
+    } else if (source === 'NO PROXY') {
+      return { type: 'none' };
+    }
+  }else{
+    if (config.proxy.source === 'CUSTOM') {
+      return { type: 'file', source: config.proxy.filename };
+    } else if (config.proxy.source === 'NO PROXY') {
+      return { type: 'none' };
+    }
+  }
 }
 
 module.exports = { fetchProxies, readLines, selectProxySource };
