@@ -2,6 +2,7 @@ require('colors');
 const axios = require('axios');
 const fs = require('fs');
 const { join } = require('path');
+const Config = require('./Config');
 
 async function fetchProxies(url) {
   try {
@@ -27,6 +28,8 @@ async function readLines(filename) {
 }
 
 async function selectProxySource(inquirer) {
+  const config = new Config()
+
   const choices = ['CUSTOM', 'NO PROXY'];
   const { source } = await inquirer.prompt([
     {

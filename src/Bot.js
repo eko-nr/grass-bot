@@ -7,7 +7,6 @@ const { HttpsProxyAgent } = require('https-proxy-agent');
 const moment = require("moment")
 
 class Bot {
-  ws;
   isOnReconnecting = false;
   timeoutSendPing = 28000;
   lastTimeRepliedPing;
@@ -67,13 +66,13 @@ class Bot {
           Browser: 'Mozilla',
         },
       });
-      this.ws = ws
       this.isOnReconnecting = false;
+      this.lastTimeRepliedPing = null;
 
       ws.on('open', () => {
         console.log(`Connected to ${proxy}`.cyan);
         console.log(`Proxy IP Info: ${JSON.stringify(proxyInfo)}`.magenta);
-        this.sendPingDelay("PROXY", proxy, userID);
+        this.sendPingDelay(ws, "PROXY", proxy, userID);
       });
 
       ws.on('message', (message) => {
@@ -100,7 +99,7 @@ class Bot {
         } else if (msg.action === 'PONG') {
           console.log(`Received PONG: ${JSON.stringify(msg)}`.blue);
           this.lastTimeRepliedPing = moment();
-          this.sendPingDelay("PROXY", proxy, userID);
+          this.sendPingDelay(ws, "PROXY", proxy, userID);
         }
       });
 
@@ -156,12 +155,12 @@ class Bot {
           Browser: 'Mozilla',
         },
       });
-      this.ws = ws
-      this.isOnReconnecting = false
+      this.isOnReconnecting = false;
+      this.lastTimeRepliedPing = null;
 
       ws.on('open', () => {
         console.log(`Connected directly without proxy`.cyan);
-        this.sendPingDelay("DIRECT",'Direct', userID);
+        this.sendPingDelay(ws, "DIRECT",'Direct', userID);
       });
 
       ws.on('message', (message) => {
@@ -188,7 +187,7 @@ class Bot {
         } else if (msg.action === 'PONG') {
           console.log(`Received PONG: ${JSON.stringify(msg)}`.blue);
           this.lastTimeRepliedPing = moment()
-          this.sendPingDelay("DIRECT",'Direct', userID);
+          this.sendPingDelay(ws, "DIRECT",'Direct', userID);
         }
       });
 
@@ -224,7 +223,7 @@ class Bot {
     }
   }
 
-  sendPingDelay(connectType, proxy, userID) {
+  sendPingDelay(ws, connectType, proxy, userID) {
     setTimeout(() => {
       const pingMessage = {
         id: uuidv4(),
@@ -232,7 +231,7 @@ class Bot {
         action: 'PING',
         data: {},
       };
-      this.ws.send(JSON.stringify(pingMessage));
+      ws.send(JSON.stringify(pingMessage));
   
       console.log(
         `Sent ping - IP: ${proxy}, Message: ${JSON.stringify(pingMessage)}`
