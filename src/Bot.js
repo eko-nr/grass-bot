@@ -4,10 +4,14 @@ const axios = require('axios');
 const { v4: uuidv4 } = require('uuid');
 const { SocksProxyAgent } = require('socks-proxy-agent');
 const { HttpsProxyAgent } = require('https-proxy-agent');
+const moment = require("moment")
 
 class Bot {
+  ws;
   isOnReconnecting = false;
   timeoutSendPing = 28000;
+  lastTimeRepliedPing;
+  reconnectNoReplyPingTime = 5;
 
   constructor(config) {
     this.config = config;
@@ -63,12 +67,13 @@ class Bot {
           Browser: 'Mozilla',
         },
       });
+      this.ws = ws
       this.isOnReconnecting = false;
 
       ws.on('open', () => {
         console.log(`Connected to ${proxy}`.cyan);
         console.log(`Proxy IP Info: ${JSON.stringify(proxyInfo)}`.magenta);
-        this.sendPingDelay(ws, "PROXY", proxy, userID);
+        this.sendPingDelay("PROXY", proxy, userID);
       });
 
       ws.on('message', (message) => {
@@ -94,7 +99,8 @@ class Bot {
           );
         } else if (msg.action === 'PONG') {
           console.log(`Received PONG: ${JSON.stringify(msg)}`.blue);
-          this.sendPingDelay(ws, "PROXY", proxy, userID);
+          this.lastTimeRepliedPing = moment();
+          this.sendPingDelay("PROXY", proxy, userID);
         }
       });
 
@@ -117,6 +123,17 @@ class Bot {
         );
         ws.terminate();
       });
+
+      const poolingReplyPing = setInterval(() => {
+        if(
+          this.lastTimeRepliedPing && 
+          moment(this.lastTimeRepliedPing).add(this.reconnectNoReplyPingTime, "minutes") < moment()
+        ){
+          clearInterval(poolingReplyPing);
+          console.log("No reply ping!".yellow);
+          ws.terminate();
+        }
+      }, 1000)
     } catch (error) {
       console.error(
         `Failed to connect with proxy ${proxy}: ${error.message}`.red
@@ -139,11 +156,12 @@ class Bot {
           Browser: 'Mozilla',
         },
       });
+      this.ws = ws
       this.isOnReconnecting = false
 
       ws.on('open', () => {
         console.log(`Connected directly without proxy`.cyan);
-        this.sendPingDelay(ws, "DIRECT",'Direct', userID);
+        this.sendPingDelay("DIRECT",'Direct', userID);
       });
 
       ws.on('message', (message) => {
@@ -169,7 +187,8 @@ class Bot {
           );
         } else if (msg.action === 'PONG') {
           console.log(`Received PONG: ${JSON.stringify(msg)}`.blue);
-          this.sendPingDelay(ws, "DIRECT",'Direct', userID);
+          this.lastTimeRepliedPing = moment()
+          this.sendPingDelay("DIRECT",'Direct', userID);
         }
       });
 
@@ -189,12 +208,23 @@ class Bot {
         console.error(`WebSocket error: ${error.message}`.red);
         ws.terminate();
       });
+
+      const poolingReplyPing = setInterval(() => {
+        if(
+          this.lastTimeRepliedPing && 
+          moment(this.lastTimeRepliedPing).add(this.reconnectNoReplyPingTime, "minutes") < moment()
+        ){
+          clearInterval(poolingReplyPing);
+          console.log("No reply ping!".yellow);
+          ws.terminate();
+        }
+      }, 1000)
     } catch (error) {
       console.error(`Failed to connect directly: ${error.message}`.red);
     }
   }
 
-  sendPingDelay(ws, connectType, proxy, userID) {
+  sendPingDelay(connectType, proxy, userID) {
     setTimeout(() => {
       const pingMessage = {
         id: uuidv4(),
@@ -202,7 +232,7 @@ class Bot {
         action: 'PING',
         data: {},
       };
-      ws.send(JSON.stringify(pingMessage));
+      this.ws.send(JSON.stringify(pingMessage));
   
       console.log(
         `Sent ping - IP: ${proxy}, Message: ${JSON.stringify(pingMessage)}`
