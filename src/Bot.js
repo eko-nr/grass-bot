@@ -7,10 +7,13 @@ const { HttpsProxyAgent } = require('https-proxy-agent');
 const moment = require("moment")
 
 class Bot {
+  startConnected = null;
   isOnReconnecting = false;
   timeoutSendPing = 65000;
-  lastTimeRepliedPing;
+  lastTimeRepliedPing = null;
+  isAuthenticated = false;
   reconnectNoReplyPingTime = 5;
+  reconnectNotAuthenticatedTime = 3;
 
   constructor(config) {
     this.config = config;
@@ -37,17 +40,18 @@ class Bot {
   }
 
   async connectToProxy(proxy, userID) {
+    this.startConnected = null;
     const formattedProxy = proxy.startsWith('socks5://')
-      ? proxy
-      : proxy.startsWith('http')
-      ? proxy
-      : `socks5://${proxy}`;
+    ? proxy
+    : proxy.startsWith('http')
+    ? proxy
+    : `socks5://${proxy}`;
     const proxyInfo = await this.getProxyIP(formattedProxy);
-
+    
     if (!proxyInfo) {
       return;
     }
-
+    
     try {
       const agent = formattedProxy.startsWith('http')
         ? new HttpsProxyAgent(formattedProxy)
@@ -68,6 +72,8 @@ class Bot {
       });
       this.isOnReconnecting = false;
       this.lastTimeRepliedPing = null;
+      this.isAuthenticated = false;
+      this.startConnected = moment();
 
       ws.on('open', () => {
         console.log(`Connected to ${proxy}`.cyan);
@@ -93,6 +99,7 @@ class Bot {
             },
           };
           ws.send(JSON.stringify(authResponse));
+          this.isAuthenticated = true;
           console.log(
             `Sent auth response: ${JSON.stringify(authResponse)}`.green
           );
@@ -103,13 +110,22 @@ class Bot {
         }
       });
 
-      const poolingReplyPing = setInterval(() => {
+      const poolingWs = setInterval(() => {
         if(
           this.lastTimeRepliedPing && 
           moment(this.lastTimeRepliedPing).add(this.reconnectNoReplyPingTime, "minutes") < moment()
         ){
-          console.log("No reply ping!".yellow);
+          console.error("No reply ping!".red);
           ws.terminate();
+        }
+
+        if(this.startConnected && !this.isAuthenticated){
+          if(
+            moment(this.startConnected).add(this.reconnectNotAuthenticatedTime, "minutes") < moment()
+          ){
+            console.error("Not authenticated!".red);
+            ws.terminate();
+          }
         }
       }, 1000)
 
@@ -119,7 +135,7 @@ class Bot {
         );
 
         if(!this.isOnReconnecting){
-          clearInterval(poolingReplyPing)
+          clearInterval(poolingWs)
           setTimeout(
             () => this.connectToProxy(proxy, userID),
             this.config.retryInterval
@@ -143,6 +159,7 @@ class Bot {
 
   async connectDirectly(userID) {
     try {
+      this.startConnected = null;
       const wsURL = `wss://${this.config.wssHost}`;
       const ws = new WebSocket(wsURL, {
         headers: {
@@ -158,6 +175,8 @@ class Bot {
       });
       this.isOnReconnecting = false;
       this.lastTimeRepliedPing = null;
+      this.isAuthenticated = false;
+      this.startConnected = moment();
 
       ws.on('open', () => {
         console.log(`Connected directly without proxy`.cyan);
@@ -182,6 +201,7 @@ class Bot {
             },
           };
           ws.send(JSON.stringify(authResponse));
+          this.isAuthenticated = true;
           console.log(
             `Sent auth response: ${JSON.stringify(authResponse)}`.green
           );
@@ -192,11 +212,31 @@ class Bot {
         }
       });
 
+      const poolingWs = setInterval(() => {
+        if(
+          this.lastTimeRepliedPing && 
+          moment(this.lastTimeRepliedPing).add(this.reconnectNoReplyPingTime, "minutes") < moment()
+        ){
+          console.error("No reply ping!".red);
+          ws.terminate();
+        }
+
+        if(this.startConnected && !this.isAuthenticated){
+          if(
+            moment(this.startConnected).add(this.reconnectNotAuthenticatedTime, "minutes") < moment()
+          ){
+            console.error("Not authenticated!".red);
+            ws.terminate();
+          }
+        }
+      }, 1000)
+
       ws.on('close', (code, reason) => {
         console.log(
           `WebSocket closed with code: ${code}, reason: ${reason}`.yellow
         );
         if(!this.isOnReconnecting){
+          clearInterval(poolingWs);
           setTimeout(
             () => this.connectDirectly(userID),
             this.config.retryInterval
@@ -209,16 +249,6 @@ class Bot {
         ws.terminate();
       });
 
-      const poolingReplyPing = setInterval(() => {
-        if(
-          this.lastTimeRepliedPing && 
-          moment(this.lastTimeRepliedPing).add(this.reconnectNoReplyPingTime, "minutes") < moment()
-        ){
-          clearInterval(poolingReplyPing);
-          console.log("No reply ping!".yellow);
-          ws.terminate();
-        }
-      }, 1000)
     } catch (error) {
       console.error(`Failed to connect directly: ${error.message}`.red);
     }
