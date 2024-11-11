@@ -7,13 +7,10 @@ const { HttpsProxyAgent } = require('https-proxy-agent');
 const moment = require("moment")
 
 class Bot {
-  startConnected = null;
   isOnReconnecting = false;
   timeoutSendPing = 85000;
-  lastTimeRepliedPing = null;
-  isAuthenticated = false;
-  reconnectNoReplyPingTime = 5;
-  reconnectNotAuthenticatedTime = 3;
+  lastTimeReceivedMsg = null;
+  reconnectNoReceivedMsgTime = 3;
 
   constructor(config) {
     this.config = config;
@@ -40,7 +37,6 @@ class Bot {
   }
 
   async connectToProxy(proxy, userID) {
-    this.startConnected = null;
     const formattedProxy = proxy.startsWith('socks5://')
     ? proxy
     : proxy.startsWith('http')
@@ -53,6 +49,9 @@ class Bot {
     }
     
     try {
+      this.isOnReconnecting = false;
+      this.lastTimeReceivedMsg = null;
+
       const agent = formattedProxy.startsWith('http')
         ? new HttpsProxyAgent(formattedProxy)
         : new SocksProxyAgent(formattedProxy);
@@ -70,10 +69,6 @@ class Bot {
           Browser: 'Mozilla',
         },
       });
-      this.isOnReconnecting = false;
-      this.lastTimeRepliedPing = null;
-      this.isAuthenticated = false;
-      this.startConnected = moment();
 
       ws.on('open', () => {
         console.log(`Connected to ${proxy}`.cyan);
@@ -84,6 +79,7 @@ class Bot {
       ws.on('message', (message) => {
         const msg = JSON.parse(message);
         console.log(`Received message: ${JSON.stringify(msg)}`.blue);
+        this.lastTimeReceivedMsg = moment();
 
         if (msg.action === 'AUTH') {
           const authResponse = {
@@ -99,33 +95,22 @@ class Bot {
             },
           };
           ws.send(JSON.stringify(authResponse));
-          this.isAuthenticated = true;
           console.log(
             `Sent auth response: ${JSON.stringify(authResponse)}`.green
           );
         } else if (msg.action === 'PONG') {
           console.log(`Received PONG: ${JSON.stringify(msg)}`.blue);
-          this.lastTimeRepliedPing = moment();
           this.sendPingDelay(ws, "PROXY", proxy, userID);
         }
       });
 
       const poolingWs = setInterval(() => {
         if(
-          this.lastTimeRepliedPing && 
-          moment(this.lastTimeRepliedPing).add(this.reconnectNoReplyPingTime, "minutes") < moment()
+          this.lastTimeReceivedMsg && 
+          moment(this.lastTimeReceivedMsg).add(this.reconnectNoReceivedMsgTime, "minutes") < moment()
         ){
-          console.error("No reply ping!".red);
+          console.error("No received message!".red);
           ws.terminate();
-        }
-
-        if(this.startConnected && !this.isAuthenticated){
-          if(
-            moment(this.startConnected).add(this.reconnectNotAuthenticatedTime, "minutes") < moment()
-          ){
-            console.error("Not authenticated!".red);
-            ws.terminate();
-          }
         }
       }, 1000)
 
@@ -159,7 +144,8 @@ class Bot {
 
   async connectDirectly(userID) {
     try {
-      this.startConnected = null;
+      this.isOnReconnecting = false;
+      this.lastTimeReceivedMsg = null;
       const wsURL = `wss://${this.config.wssHost}`;
       const ws = new WebSocket(wsURL, {
         headers: {
@@ -173,10 +159,6 @@ class Bot {
           Browser: 'Mozilla',
         },
       });
-      this.isOnReconnecting = false;
-      this.lastTimeRepliedPing = null;
-      this.isAuthenticated = false;
-      this.startConnected = moment();
 
       ws.on('open', () => {
         console.log(`Connected directly without proxy`.cyan);
@@ -186,6 +168,7 @@ class Bot {
       ws.on('message', (message) => {
         const msg = JSON.parse(message);
         console.log(`Received message: ${JSON.stringify(msg)}`.blue);
+        this.lastTimeReceivedMsg = moment()
 
         if (msg.action === 'AUTH') {
           const authResponse = {
@@ -201,34 +184,24 @@ class Bot {
             },
           };
           ws.send(JSON.stringify(authResponse));
-          this.isAuthenticated = true;
           console.log(
             `Sent auth response: ${JSON.stringify(authResponse)}`.green
           );
         } else if (msg.action === 'PONG') {
           console.log(`Received PONG: ${JSON.stringify(msg)}`.blue);
-          this.lastTimeRepliedPing = moment()
           this.sendPingDelay(ws, "DIRECT",'Direct', userID);
         }
       });
 
       const poolingWs = setInterval(() => {
         if(
-          this.lastTimeRepliedPing && 
-          moment(this.lastTimeRepliedPing).add(this.reconnectNoReplyPingTime, "minutes") < moment()
+          this.lastTimeReceivedMsg && 
+          moment(this.lastTimeReceivedMsg).add(this.reconnectNoReceivedMsgTime, "minutes") < moment()
         ){
-          console.error("No reply ping!".red);
+          console.error("No received message!".red);
           ws.terminate();
         }
 
-        if(this.startConnected && !this.isAuthenticated){
-          if(
-            moment(this.startConnected).add(this.reconnectNotAuthenticatedTime, "minutes") < moment()
-          ){
-            console.error("Not authenticated!".red);
-            ws.terminate();
-          }
-        }
       }, 1000)
 
       ws.on('close', (code, reason) => {
