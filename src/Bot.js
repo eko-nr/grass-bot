@@ -10,7 +10,7 @@ class Bot {
   isOnReconnecting = false;
   timeoutSendPing = 85000;
   lastTimeReceivedMsg = null;
-  reconnectNoReceivedMsgTime = 3;
+  reconnectNoReceivedMsgTime = 4;
 
   constructor(config) {
     this.config = config;
@@ -60,7 +60,7 @@ class Bot {
         agent,
         headers: {
           'User-Agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:92.0) Gecko/20100101 Firefox/92.0',
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36 Edg/130.0.0.0',
           Pragma: 'no-cache',
           'Accept-Language': 'uk-UA,uk;q=0.9,en-US;q=0.8,en;q=0.7',
           'Cache-Control': 'no-cache',
@@ -88,7 +88,7 @@ class Bot {
             result: {
               browser_id: uuidv4(),
               user_id: userID,
-              user_agent: 'Mozilla/5.0',
+              user_agent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36 Edg/130.0.0.0',
               timestamp: Math.floor(Date.now() / 1000),
               device_type: 'desktop',
               version: '4.28.2',
