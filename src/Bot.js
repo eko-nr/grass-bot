@@ -11,6 +11,8 @@ class Bot {
   timeoutSendPing = 85000;
   lastTimeReceivedMsg = null;
   reconnectNoReceivedMsgTime = 4;
+  errorTollerant = 200;
+  errorCount = 0;
 
   constructor(config) {
     this.config = config;
@@ -27,6 +29,7 @@ class Bot {
       console.log(`Connected through ip ${response.data.ip}`.green);
       return response.data;
     } catch (error) {
+      this.errorCount++
       console.error(
         `Skipping proxy ${proxy} due to connection error: ${error.message}`
           .yellow
@@ -118,11 +121,12 @@ class Bot {
       }, 1000)
 
       ws.on('close', (code, reason) => {
+        this.errorCount++;
         console.log(
           `WebSocket closed with code: ${code}, reason: ${reason}`.yellow
         );
 
-        if(!this.isOnReconnecting){
+        if(!this.isOnReconnecting && this.errorCount < this.errorTollerant){
           clearInterval(poolingWs)
           setTimeout(
             () => this.connectToProxy(proxy, userID),
@@ -211,10 +215,11 @@ class Bot {
       }, 1000)
 
       ws.on('close', (code, reason) => {
+        this.errorCount++
         console.log(
           `WebSocket closed with code: ${code}, reason: ${reason}`.yellow
         );
-        if(!this.isOnReconnecting){
+        if(!this.isOnReconnecting && this.errorCount < this.errorTollerant){
           clearInterval(poolingWs);
           setTimeout(
             () => this.connectDirectly(userID),
