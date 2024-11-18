@@ -7,11 +7,10 @@ const { HttpsProxyAgent } = require('https-proxy-agent');
 const moment = require("moment")
 
 class Bot {
-  isOnReconnecting = false;
   timeoutSendPing = 85000;
   lastTimeReceivedMsg = null;
   reconnectNoReceivedMsgTime = 4;
-  errorTollerant = 200;
+  errorTollerant = 125;
   errorCount = 0;
 
   constructor(config) {
@@ -52,13 +51,12 @@ class Bot {
     }
     
     try {
-      this.isOnReconnecting = false;
       this.lastTimeReceivedMsg = null;
-
+      
       const agent = formattedProxy.startsWith('http')
-        ? new HttpsProxyAgent(formattedProxy)
-        : new SocksProxyAgent(formattedProxy);
-
+      ? new HttpsProxyAgent(formattedProxy)
+      : new SocksProxyAgent(formattedProxy);
+      
       const wsHost = this.config.wssList[Math.floor(Math.random() * this.config.wssList.length)];
 
       const wsURL = `wss://${wsHost}`;
@@ -86,6 +84,8 @@ class Bot {
         const msg = JSON.parse(message);
         console.log(`Received message: ${JSON.stringify(msg)}`.blue);
         this.lastTimeReceivedMsg = moment();
+        console.log()
+
 
         if (msg.action === 'AUTH') {
           const authResponse = {
@@ -126,11 +126,15 @@ class Bot {
           `WebSocket closed with code: ${code}, reason: ${reason}`.yellow
         );
 
-        if(!this.isOnReconnecting && this.errorCount < this.errorTollerant){
+        if(this.errorCount < this.errorTollerant){
           clearInterval(poolingWs)
           setTimeout(
             () => this.connectToProxy(proxy, userID),
             this.config.retryInterval
+          );
+        }else{
+          console.log(
+            `Websocket connection end due to max error tollerant`.red
           );
         }
       });
@@ -151,7 +155,6 @@ class Bot {
 
   async connectDirectly(userID) {
     try {
-      this.isOnReconnecting = false;
       this.lastTimeReceivedMsg = null;
       
       const wsHost = this.config.wssList[Math.floor(Math.random() * this.config.wssList.length)];
@@ -219,11 +222,16 @@ class Bot {
         console.log(
           `WebSocket closed with code: ${code}, reason: ${reason}`.yellow
         );
-        if(!this.isOnReconnecting && this.errorCount < this.errorTollerant){
-          clearInterval(poolingWs);
+        
+        if(this.errorCount < this.errorTollerant){
+          clearInterval(poolingWs)
           setTimeout(
-            () => this.connectDirectly(userID),
+            () => this.connectToProxy(proxy, userID),
             this.config.retryInterval
+          );
+        }else{
+          console.log(
+            `Websocket connection end due to max error tollerant`.red
           );
         }
       });
