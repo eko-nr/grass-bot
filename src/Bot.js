@@ -55,7 +55,10 @@ class Bot {
       const agent = formattedProxy.startsWith('http')
         ? new HttpsProxyAgent(formattedProxy)
         : new SocksProxyAgent(formattedProxy);
-      const wsURL = `wss://${this.config.wssHost}`;
+
+      const wsHost = this.config.wssList[Math.floor(Math.random() * this.config.wssList.length)];
+
+      const wsURL = `wss://${wsHost}`;
       const ws = new WebSocket(wsURL, {
         agent,
         headers: {
@@ -146,7 +149,10 @@ class Bot {
     try {
       this.isOnReconnecting = false;
       this.lastTimeReceivedMsg = null;
-      const wsURL = `wss://${this.config.wssHost}`;
+      
+      const wsHost = this.config.wssList[Math.floor(Math.random() * this.config.wssList.length)];
+      const wsURL = `wss://${wsHost}`;
+    
       const ws = new WebSocket(wsURL, {
         headers: {
           'User-Agent':

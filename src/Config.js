@@ -2,7 +2,6 @@ class Config {
   constructor() {
     this.ipCheckURL = 'https://ipinfo.io/json';
     this.wssList = ['proxy2.wynd.network:4444', 'proxy2.wynd.network:4650'];
-    this.wssHost = 'proxy.wynd.network:4444';
     this.prompt = {
       show: false,
     }
