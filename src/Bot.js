@@ -10,7 +10,7 @@ class Bot {
   timeoutSendPing = 85000;
   lastTimeReceivedMsg = null;
   reconnectNoReceivedMsgTime = 4;
-  errorTollerant = 125;
+  errorTollerant = 360;
   errorCount = 0;
 
   constructor(config) {
@@ -125,9 +125,9 @@ class Bot {
         console.log(
           `WebSocket closed with code: ${code}, reason: ${reason}`.yellow
         );
+        clearInterval(poolingWs)
 
         if(this.errorCount < this.errorTollerant){
-          clearInterval(poolingWs)
           setTimeout(
             () => this.connectToProxy(proxy, userID),
             this.config.retryInterval
@@ -222,9 +222,9 @@ class Bot {
         console.log(
           `WebSocket closed with code: ${code}, reason: ${reason}`.yellow
         );
+        clearInterval(poolingWs)
         
         if(this.errorCount < this.errorTollerant){
-          clearInterval(poolingWs)
           setTimeout(
             () => this.connectToProxy(proxy, userID),
             this.config.retryInterval
