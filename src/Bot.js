@@ -10,7 +10,7 @@ class Bot {
   timeoutSendPing = 85000;
   lastTimeReceivedMsg = null;
   reconnectNoReceivedMsgTime = 4;
-  errorTollerant = 360;
+  errorTollerant = 700;
   errorCount = 0;
 
   constructor(config) {
