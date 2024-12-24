@@ -5,6 +5,7 @@ const { v4: uuidv4 } = require('uuid');
 const { SocksProxyAgent } = require('socks-proxy-agent');
 const { HttpsProxyAgent } = require('https-proxy-agent');
 const moment = require("moment")
+const crypto = require("crypto");
 
 class Bot {
   timeoutSendPing = 85000;
@@ -60,17 +61,22 @@ class Bot {
       const wsHost = this.config.wssList[Math.floor(Math.random() * this.config.wssList.length)];
 
       const wsURL = `wss://${wsHost}`;
+
+      const randomBytes = Buffer.from(crypto.randomBytes(16), "utf8").toString("base64");
+
       const ws = new WebSocket(wsURL, {
         agent,
         headers: {
-          'User-Agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36 Edg/130.0.0.0',
-          Pragma: 'no-cache',
-          'Accept-Language': 'uk-UA,uk;q=0.9,en-US;q=0.8,en;q=0.7',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36 Edg/130.0.0.0',
+          'Pragma': 'no-cache',
+          'Origin': 'chrome-extension://ilehaonighjijnmpnagapkhpcdbhclfg',
+          'Accept-Language': 'en-US,en;q=0.9',
+          'Sec-WebSocket-Key': randomBytes,
+          'Upgrade': 'websocket',
           'Cache-Control': 'no-cache',
-          OS: 'Windows',
-          Platform: 'Desktop',
-          Browser: 'Mozilla',
+          'Connection': 'Upgrade',
+          'Sec-WebSocket-Version': '13',
+          'Sec-WebSocket-Extensions': 'permessage-deflate; client_max_window_bits',
         },
       });
 
@@ -96,8 +102,9 @@ class Bot {
               user_id: userID,
               user_agent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36 Edg/130.0.0.0',
               timestamp: Math.floor(Date.now() / 1000),
-              device_type: 'desktop',
-              version: '4.28.2',
+              device_type: "extension",
+              version: "4.26.2",
+              extension_id: "ilehaonighjijnmpnagapkhpcdbhclfg"
             },
           };
           ws.send(JSON.stringify(authResponse));
